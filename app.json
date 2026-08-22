@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "coding-tracker",
-    "slug": "coding-tracker",
+    "name": "AnonChat",
+    "slug": "anon-chat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0a0a1a",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.naman01.codingtracker"
+      "package": "com.naman01.anonchat"
     },
     "web": {
       "favicon": "./assets/favicon.png"
