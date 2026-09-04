@@ -1,164 +1,137 @@
-# Ezy Checklist
+# 🛒 Ezy-Chklist
 
-An AI-powered grocery and shopping checklist app that converts plain text item lists into organized categories automatically.
+A minimal, AI-powered grocery organizer that automatically categorizes your shopping list into smart groups — built with React Native + Expo.
 
-## Features
+> Type your items in any format, hit **Categorize**, and get an organized checklist instantly.
 
-* AI-based item categorization using Gemini 3.1 Flash Lite
-* Convert raw item lists into structured categories
-* Interactive checklist with completion tracking
-* Persistent storage using Local Storage
-* Mobile-first responsive design
-* Fast and lightweight
-* No account required
-* No backend required
+---
 
-## Demo
+## ✨ Features
 
-### Input
+- **AI-Powered Categorization** — Uses Google's Gemini API to intelligently sort items into categories like *Vegetables & Greens*, *Dairy & Eggs*, *Bakery & Bread*, *Personal Care*, and more
+- **Flexible Input** — Enter items separated by commas, spaces, or new lines. It just works
+- **Persistent Checklist** — Your list and checked-off items are saved locally and survive app restarts
+- **Progress Tracking** — Visual progress bar shows how many items you've checked off
+- **Settings Panel** — Bring your own Gemini API key and switch models from within the app
+- **Cross-Platform** — Runs on Android, iOS, and Web via Expo
 
-```text
-potato
-onion
-milk
-ghee
-bread
-toothpaste
+---
+
+## 📸 How It Works
+
+```
+Input:  potato onion milk ghee bread toothpaste
+
+Output:
+┌─────────────────────────────┐
+│ 🥬 Vegetables & Greens      │
+│   ☐ potato                  │
+│   ☐ onion                   │
+├─────────────────────────────┤
+│ 🥛 Dairy & Eggs             │
+│   ☐ milk                    │
+│   ☐ ghee                    │
+├─────────────────────────────┤
+│ 🍞 Bakery & Bread           │
+│   ☐ bread                   │
+├─────────────────────────────┤
+│ 🧴 Personal Care            │
+│   ☐ toothpaste              │
+└─────────────────────────────┘
 ```
 
-### Output
+---
 
-```json
-{
-  "Vegetables": ["potato", "onion"],
-  "Dairy": ["milk", "ghee"],
-  "Bakery": ["bread"],
-  "Personal Care": ["toothpaste"]
-}
-```
+## 🚀 Getting Started
 
-## Categories
+### Prerequisites
 
-* Vegetables
-* Fruits
-* Dairy
-* Bakery
-* Beverages
-* Household
-* Personal Care
-* Other
+- [Node.js](https://nodejs.org/) (v18+)
+- [Expo Go](https://expo.dev/go) app on your phone
+- A free [Gemini API Key](https://ai.google.dev/)
 
-## Tech Stack
-
-* React
-* TypeScript
-* Tailwind CSS
-* Gemini 3.1 Flash Lite
-* Local Storage
-* Vite
-
-## Installation
-
-### Clone Repository
+### Install & Run
 
 ```bash
-git clone https://github.com/your-username/ezy-checklist.git
-cd ezy-checklist
-```
+# Clone the repo
+git clone https://github.com/naman-0804/coding-tracker_apk.git
+cd coding-tracker_apk
 
-### Install Dependencies
-
-```bash
+# Install dependencies
 npm install
+
+# Start the dev server
+npx expo start
 ```
 
-### Configure Environment Variables
+Then scan the QR code with **Expo Go** on your phone.
 
-Create a `.env` file in the root directory.
+### Setup API Key
 
-```env
-VITE_GEMINI_API_KEY=your_api_key_here
-```
+1. Open the app
+2. Tap the **⚙️** gear icon in the header
+3. Paste your Gemini API key
+4. (Optional) Change the model ID
+5. Hit **Save Settings**
 
-### Start Development Server
+No `.env` files needed — the key is stored securely on-device.
+
+---
+
+## 🏗️ Build APK (via Expo)
+
+To get a standalone APK, use [EAS Build](https://expo.dev/eas) (no local Android SDK needed):
 
 ```bash
-npm run dev
+# Install EAS CLI
+npm install -g eas-cli
+
+# Login to Expo
+eas login
+
+# Build APK
+eas build -p android --profile preview
 ```
 
-## Build
+The download link will appear in your terminal and on the [Expo dashboard](https://expo.dev) once the build completes.
 
-### Web Build
+---
 
-```bash
-npm run build
+## 🧠 AI Model
+
+By default the app uses **Gemini 3.1 Flash Lite** for fast, low-cost categorization. You can switch to any supported Gemini model from the Settings panel:
+
+| Model | Speed | Quality |
+|---|---|---|
+| `gemini-3.1-flash-lite` | ⚡ Fastest | Good |
+| `gemini-2.5-flash` | Fast | Great |
+| `gemini-2.0-flash` | Fast | Great |
+| `gemini-1.5-flash` | Moderate | Excellent |
+
+---
+
+## 📁 Project Structure
+
+```
+ezy-chklist/
+├── App.js            # Main application (UI + logic)
+├── app.json          # Expo configuration
+├── eas.json          # EAS Build profiles
+├── package.json      # Dependencies & scripts
+├── assets/           # App icons & images
+└── .gitignore
 ```
 
-### Android APK (Expo)
+---
 
-```bash
-npx expo prebuild
-cd android
-.\gradlew.bat assembleRelease
-```
+## 🛠️ Tech Stack
 
-APK Location:
+- **React Native** + **Expo** (SDK 57)
+- **Google Gemini API** (Generative AI)
+- **AsyncStorage** (local persistence)
 
-```text
-android/app/build/outputs/apk/release/app-release.apk
-```
+---
 
-## Project Structure
+## 📄 License
 
-```text
-src/
-├── components/
-├── pages/
-├── hooks/
-├── services/
-├── utils/
-├── types/
-└── App.tsx
-```
-
-## How It Works
-
-1. User enters items in a text area.
-2. Items are sent to Gemini 3.1 Flash Lite.
-3. Gemini categorizes the items.
-4. Results are displayed as grouped checklists.
-5. Checklist state is stored in Local Storage.
-6. Completed items remain saved after page refresh.
-
-## Local Storage
-
-Example stored data:
-
-```json
-{
-  "Vegetables": [
-    {
-      "name": "potato",
-      "checked": true
-    },
-    {
-      "name": "onion",
-      "checked": false
-    }
-  ]
-}
-```
-
-## Roadmap
-
-* Custom categories
-* Recurring shopping lists
-* Voice input
-* Barcode scanning
-* Cloud sync
-* Shared family lists
-* Offline AI categorization
-
-## License
-
-MIT License
+MIT — do whatever you want with it.
