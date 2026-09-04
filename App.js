@@ -1,386 +1,619 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
+  StyleSheet,
   Text,
+  View,
   TextInput,
   TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  StatusBar,
+  ScrollView,
+  ActivityIndicator,
   Platform,
-  KeyboardAvoidingView,
   Keyboard,
-} from "react-native";
-import { io } from "socket.io-client";
+  Animated,
+  Dimensions,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
 
-const SERVER_URL = "https://anon-chat-e7x5.onrender.com";
+const STORAGE_KEY = '@ezy_chklist_data';
+const { width } = Dimensions.get('window');
 
-// Generate random 3-char UID like "A3x" — same logic as website
-const generateUID = () => {
-  const c1 = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-  const c2 = Math.floor(Math.random() * 10);
-  const c3 = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-  return `${c1}${c2}${c3}`;
+// Category emoji map for visual flair
+const CATEGORY_ICONS = {
+  'Vegetables & Greens': '🥬',
+  'Fruits': '🍎',
+  'Dairy & Eggs': '🥛',
+  'Bakery & Bread': '🍞',
+  'Pantry & Spices': '🫙',
+  'Snacks & Sweets': '🍫',
+  'Beverages': '🥤',
+  'Meat & Seafood': '🥩',
+  'Personal Care': '🧴',
+  'Household & Cleaning': '🧹',
+  'Frozen Foods': '🧊',
+  'Grains & Pulses': '🌾',
 };
 
-export default function App() {
-  const uid = useMemo(() => generateUID(), []);
-  const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState("");
-  const [onlineCount, setOnlineCount] = useState(0);
-  const [connected, setConnected] = useState(false);
-  const flatListRef = useRef(null);
-  const socketRef = useRef(null);
+const getIcon = (cat) => {
+  for (const [key, icon] of Object.entries(CATEGORY_ICONS)) {
+    if (cat.toLowerCase().includes(key.split(' ')[0].toLowerCase())) return icon;
+  }
+  return '📦';
+};
 
-  useEffect(() => {
-    const socket = io(SERVER_URL, {
-      transports: ["websocket"],
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-    });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      setConnected(true);
-    });
-
-    socket.on("disconnect", () => {
-      setConnected(false);
-    });
-
-    socket.on("chat message", (msg) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + Math.random(),
-          uid: msg.uid,
-          text: msg.text,
-          timestamp: new Date(),
-        },
-      ]);
-    });
-
-    socket.on("user count", (count) => {
-      setOnlineCount(count);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
-
-  const sendMessage = () => {
-    const text = inputText.trim();
-    if (!text || !socketRef.current) return;
-    socketRef.current.emit("chat message", { uid, text });
-    setInputText("");
-  };
-
-  const renderMessage = ({ item }) => {
-    const isMe = item.uid === uid;
-    return (
-      <View
-        style={[
-          styles.messageBubbleRow,
-          isMe ? styles.myRow : styles.otherRow,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageBubble,
-            isMe ? styles.myBubble : styles.otherBubble,
-          ]}
-        >
-          <Text style={[styles.uidText, isMe ? styles.myUid : styles.otherUid]}>
-            {item.uid}
-          </Text>
-          <Text style={styles.messageText}>{item.text}</Text>
-        </View>
-      </View>
-    );
-  };
-
-  const hasMessages = messages.length > 0;
-
+// Confirm modal component (works on web unlike Alert.alert with buttons)
+function ConfirmModal({ visible, title, message, onConfirm, onCancel }) {
+  if (!visible) return null;
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0a1a" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.logoRow}>
-            <Text style={styles.logoIcon}>⬡</Text>
-            <Text style={styles.logoText}>AnonChat</Text>
-          </View>
-          <Text style={styles.tagline}>speak freely</Text>
-        </View>
-        <View style={styles.onlineBadge}>
-          <View
-            style={[
-              styles.pulseDot,
-              { backgroundColor: connected ? "#34d399" : "#ef4444" },
-            ]}
-          />
-          <Text style={styles.onlineText}>{onlineCount} online</Text>
+    <View style={modalStyles.overlay}>
+      <View style={modalStyles.card}>
+        <Text style={modalStyles.title}>{title}</Text>
+        <Text style={modalStyles.message}>{message}</Text>
+        <View style={modalStyles.actions}>
+          <TouchableOpacity style={modalStyles.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+            <Text style={modalStyles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={modalStyles.confirmBtn} onPress={onConfirm} activeOpacity={0.7}>
+            <Text style={modalStyles.confirmText}>Clear All</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      {/* Messages Area */}
-      <KeyboardAvoidingView
-        style={styles.chatArea}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
-      >
-        {!hasMessages ? (
-          <View style={styles.welcomeContainer}>
-            <View style={styles.welcomeCard}>
-              <Text style={styles.welcomeIcon}>🔒</Text>
-              <Text style={styles.welcomeTitle}>Welcome to AnonChat</Text>
-              <Text style={styles.welcomeSubtitle}>
-                Messages are not stored. Say something!
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            style={styles.messagesList}
-            contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={() =>
-              flatListRef.current?.scrollToEnd({ animated: true })
-            }
-            onLayout={() =>
-              flatListRef.current?.scrollToEnd({ animated: false })
-            }
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-
-        {/* Input Bar */}
-        <View style={styles.inputBar}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor="#6b7280"
-              value={inputText}
-              onChangeText={setInputText}
-              maxLength={500}
-              returnKeyType="send"
-              onSubmitEditing={sendMessage}
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !inputText.trim() && styles.sendButtonDisabled,
-              ]}
-              onPress={sendMessage}
-              disabled={!inputText.trim()}
-              activeOpacity={0.7}
-            >
-              {/* Paper plane SVG approximated with unicode + styling */}
-              <Text style={styles.sendIcon}>➤</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0a1a",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50,
-  },
+export default function App() {
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [checklist, setChecklist] = useState({});
+  const [showConfirm, setShowConfirm] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Header ──────────────────────────────
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+  }, []);
+
+  // Load saved data
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setChecklist(parsed);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load checklist', e);
+      }
+    })();
+  }, []);
+
+  // Persist on change
+  useEffect(() => {
+    (async () => {
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(checklist));
+      } catch (e) {
+        console.error('Failed to save checklist', e);
+      }
+    })();
+  }, [checklist]);
+
+  const handleCategorize = async () => {
+    const rawInput = inputText.trim();
+    if (!rawInput) return;
+
+    const rawTokens = rawInput.split(/[\n,]+/).map(t => t.trim()).filter(Boolean);
+    const itemsList = [];
+    for (const token of rawTokens) {
+      itemsList.push(...token.split(/\s+/).filter(Boolean));
+    }
+    if (itemsList.length === 0) return;
+
+    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
+      alert('Please set EXPO_PUBLIC_GEMINI_API_KEY in your .env file.');
+      return;
+    }
+
+    setLoading(true);
+    Keyboard.dismiss();
+
+    const prompt = `You are an expert grocery organizer.
+Categorize every item into logical grocery categories.
+
+Rules:
+1. Use categories like: "Vegetables & Greens", "Fruits", "Dairy & Eggs", "Bakery & Bread", "Pantry & Spices", "Snacks & Sweets", "Beverages", "Meat & Seafood", "Personal Care", "Household & Cleaning"
+2. Create sensible categories if needed (e.g., "Frozen Foods", "Grains & Pulses").
+3. NEVER use "Other" or "Miscellaneous". Deduce every item intelligently (e.g., ghee -> Dairy & Eggs, atta -> Pantry & Spices, shampoo -> Personal Care).
+4. Return STRICT JSON: keys are category names, values are string arrays.
+
+Items: ${JSON.stringify(itemsList)}`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`API returned ${response.status}`);
+
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error('Invalid API response');
+
+      const parsedJSON = JSON.parse(rawText);
+
+      setChecklist((prev) => {
+        const updated = { ...prev };
+        for (const [category, newItems] of Object.entries(parsedJSON)) {
+          if (!Array.isArray(newItems) || newItems.length === 0) continue;
+          if (!updated[category]) updated[category] = [];
+          const existingNames = updated[category].map(i => i.name.toLowerCase());
+          newItems.forEach((itemName) => {
+            if (typeof itemName === 'string' && !existingNames.includes(itemName.toLowerCase())) {
+              updated[category].push({ name: itemName, checked: false });
+            }
+          });
+        }
+        return updated;
+      });
+
+      setInputText('');
+    } catch (error) {
+      alert(`Failed to categorize: ${error.message}`);
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleItem = (category, index) => {
+    setChecklist((prev) => {
+      const updated = { ...prev };
+      updated[category] = [...updated[category]];
+      updated[category][index] = { ...updated[category][index], checked: !updated[category][index].checked };
+      return updated;
+    });
+  };
+
+  const clearChecklist = () => {
+    setChecklist({});
+    setShowConfirm(false);
+  };
+
+  const hasItems = Object.keys(checklist).length > 0;
+
+  // Stats
+  const totalItems = Object.values(checklist).reduce((sum, arr) => sum + arr.length, 0);
+  const checkedItems = Object.values(checklist).reduce((sum, arr) => sum + arr.filter(i => i.checked).length, 0);
+  const progress = totalItems > 0 ? checkedItems / totalItems : 0;
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <ConfirmModal
+        visible={showConfirm}
+        title="Clear Checklist?"
+        message="This will remove all items. This action cannot be undone."
+        onConfirm={clearChecklist}
+        onCancel={() => setShowConfirm(false)}
+      />
+
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>  
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.logo}>🛒 Ezy-Chklist</Text>
+          </View>
+          <View style={styles.headerRight}>
+            {hasItems && (
+              <TouchableOpacity
+                style={styles.clearBtn}
+                onPress={() => setShowConfirm(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearBtnText}>🗑</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Progress bar */}
+        {hasItems && (
+          <View style={styles.progressSection}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+            <Text style={styles.progressText}>
+              {checkedItems}/{totalItems} done
+            </Text>
+          </View>
+        )}
+
+        {/* Input area */}
+        {(
+          <View style={styles.inputSection}>
+            <TextInput
+              style={styles.textArea}
+              multiline
+              placeholder="Type items: potato, onion, milk ghee bread..."
+              placeholderTextColor="#555"
+              value={inputText}
+              onChangeText={setInputText}
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={[styles.categorizeBtn, loading && styles.categorizeBtnDisabled, !inputText.trim() && !loading && styles.categorizeBtnDim]}
+              onPress={handleCategorize}
+              disabled={loading || !inputText.trim()}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={styles.categorizeBtnText}>  Categorizing...</Text>
+                </View>
+              ) : (
+                <Text style={styles.categorizeBtnText}>✨ Categorize</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Checklist */}
+        <ScrollView
+          style={styles.listScroll}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {hasItems ? (
+            Object.entries(checklist).map(([category, items]) => {
+              if (!items || items.length === 0) return null;
+              const catChecked = items.filter(i => i.checked).length;
+              const catDone = catChecked === items.length;
+              return (
+                <View key={category} style={[styles.categoryCard, catDone && styles.categoryCardDone]}>
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryIcon}>{getIcon(category)}</Text>
+                    <Text style={[styles.categoryTitle, catDone && styles.categoryTitleDone]}>{category}</Text>
+                    <Text style={styles.categoryCount}>{catChecked}/{items.length}</Text>
+                  </View>
+                  {items.map((item, index) => (
+                    <TouchableOpacity
+                      key={`${category}-${index}`}
+                      style={styles.itemRow}
+                      activeOpacity={0.6}
+                      onPress={() => toggleItem(category, index)}
+                    >
+                      <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+                        {item.checked && <Text style={styles.checkmark}>✓</Text>}
+                      </View>
+                      <Text style={[styles.itemText, item.checked && styles.itemTextChecked]}>
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🛒</Text>
+              <Text style={styles.emptyText}>Your smart grocery list</Text>
+              <Text style={styles.emptySubtext}>Type or paste your items above and tap Categorize.{`\n`}Items can be separated by commas, spaces, or new lines.</Text>
+
+            </View>
+          )}
+        </ScrollView>
+      </Animated.View>
+    </View>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
   },
-  headerLeft: {
-    flexDirection: "column",
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  logoIcon: {
-    fontSize: 22,
-    color: "#a78bfa",
-  },
-  logoText: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#a78bfa",
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: 11,
-    color: "#6b7280",
-    marginTop: 2,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  onlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(34,197,94,0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  card: {
+    backgroundColor: '#1E1E2E',
     borderRadius: 20,
-    gap: 6,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  onlineText: {
-    fontSize: 13,
-    color: "#86efac",
-    fontWeight: "600",
-  },
-
-  // ── Chat Area ───────────────────────────
-  chatArea: {
-    flex: 1,
-  },
-
-  // ── Welcome ─────────────────────────────
-  welcomeContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  welcomeCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: 20,
-    padding: 32,
+    padding: 28,
+    width: Math.min(width - 60, 340),
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  welcomeIcon: {
-    fontSize: 36,
-    marginBottom: 16,
-  },
-  welcomeTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#e5e7eb",
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
     marginBottom: 8,
   },
-  welcomeSubtitle: {
+  message: {
     fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
+    color: '#999',
+    marginBottom: 24,
     lineHeight: 20,
   },
-
-  // ── Messages ────────────────────────────
-  messagesList: {
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
     flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#2A2A3A',
+    alignItems: 'center',
   },
-  messagesContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  messageBubbleRow: {
-    marginBottom: 12,
-    flexDirection: "row",
-  },
-  myRow: {
-    justifyContent: "flex-end",
-  },
-  otherRow: {
-    justifyContent: "flex-start",
-  },
-  messageBubble: {
-    maxWidth: "78%",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  myBubble: {
-    backgroundColor: "#6366f1",
-    borderBottomRightRadius: 4,
-  },
-  otherBubble: {
-    backgroundColor: "#1f2937",
-    borderBottomLeftRadius: 4,
-  },
-  uidText: {
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 3,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  myUid: {
-    color: "rgba(255,255,255,0.6)",
-  },
-  otherUid: {
-    color: "#818cf8",
-  },
-  messageText: {
+  cancelText: {
+    color: '#aaa',
+    fontWeight: '600',
     fontSize: 15,
-    color: "#f9fafb",
-    lineHeight: 21,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#E74C3C',
+    alignItems: 'center',
+  },
+  confirmText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+});
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#0D0D14',
+  },
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? 38 : 0,
   },
 
-  // ── Input Bar ───────────────────────────
-  inputBar: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "android" ? 24 : 16,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    backgroundColor: "#0f1120",
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'web' ? 16 : 12,
+    paddingBottom: 12,
   },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1a1d2e",
-    borderRadius: 25,
-    paddingLeft: 18,
-    paddingRight: 5,
+  logo: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: "#f9fafb",
-    paddingVertical: Platform.OS === "ios" ? 14 : 10,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#6366f1",
-    justifyContent: "center",
-    alignItems: "center",
+  addMoreBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#1A1A2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  sendButtonDisabled: {
-    backgroundColor: "#374151",
-  },
-  sendIcon: {
-    color: "#ffffff",
+  addMoreText: {
+    color: '#7C6FF7',
     fontSize: 18,
-    marginLeft: 2,
+    fontWeight: '700',
+  },
+  clearBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(231,76,60,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(231,76,60,0.2)',
+  },
+  clearBtnText: {
+    fontSize: 17,
+  },
+
+  // Progress
+  progressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 12,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1A1A2E',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#34D399',
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    minWidth: 55,
+    textAlign: 'right',
+  },
+
+  // Input
+  inputSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  textArea: {
+    backgroundColor: '#13131F',
+    color: '#E5E7EB',
+    borderRadius: 16,
+    padding: 16,
+    minHeight: 90,
+    textAlignVertical: 'top',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(124,111,247,0.15)',
+  },
+  categorizeBtn: {
+    backgroundColor: '#7C6FF7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categorizeBtnDisabled: {
+    backgroundColor: '#3D3670',
+  },
+  categorizeBtnDim: {
+    backgroundColor: '#2E2A50',
+  },
+  categorizeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  // List
+  listScroll: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  categoryCard: {
+    backgroundColor: '#13131F',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  categoryCardDone: {
+    borderColor: 'rgba(52,211,153,0.2)',
+    backgroundColor: 'rgba(52,211,153,0.04)',
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  categoryIcon: {
+    fontSize: 18,
+  },
+  categoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#C4B5FD',
+    flex: 1,
+    letterSpacing: 0.2,
+  },
+  categoryTitleDone: {
+    color: '#6EE7B7',
+  },
+  categoryCount: {
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '600',
+    backgroundColor: '#1A1A2E',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+
+  // Items
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#3D3670',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#34D399',
+    borderColor: '#34D399',
+  },
+  checkmark: {
+    color: '#0D0D14',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  itemText: {
+    fontSize: 16,
+    color: '#D1D5DB',
+    textTransform: 'capitalize',
+  },
+  itemTextChecked: {
+    color: '#4B5563',
+    textDecorationLine: 'line-through',
+  },
+
+  // Empty
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#E5E7EB',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 21,
   },
 });
