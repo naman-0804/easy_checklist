@@ -1,83 +1,164 @@
-# Coding Tracker
+# Ezy Checklist
 
-A simple Android app for tracking the number of coding questions solved across different coding platforms.
+An AI-powered grocery and shopping checklist app that converts plain text item lists into organized categories automatically.
 
 ## Features
 
-* Add coding platforms
-* Track questions solved for each platform
-* Update solved question counts
-* Automatically calculate total questions solved
-* Delete platforms
-* Store data locally on the device
-* Works offline
-* Simple and lightweight interface
+* AI-based item categorization using Gemini 3.1 Flash Lite
+* Convert raw item lists into structured categories
+* Interactive checklist with completion tracking
+* Persistent storage using Local Storage
+* Mobile-first responsive design
+* Fast and lightweight
+* No account required
+* No backend required
 
-## Example
+## Demo
 
-| Platform      | Questions Solved |
-| ------------- | ---------------: |
-| HackerRank    |               10 |
-| TUF           |              200 |
-| LeetCode      |              150 |
-| GeeksforGeeks |               75 |
+### Input
 
-**Total Solved: 435**
+```text
+potato
+onion
+milk
+ghee
+bread
+toothpaste
+```
+
+### Output
+
+```json
+{
+  "Vegetables": ["potato", "onion"],
+  "Dairy": ["milk", "ghee"],
+  "Bakery": ["bread"],
+  "Personal Care": ["toothpaste"]
+}
+```
+
+## Categories
+
+* Vegetables
+* Fruits
+* Dairy
+* Bakery
+* Beverages
+* Household
+* Personal Care
+* Other
 
 ## Tech Stack
 
-* React Native
-* Expo
-* JavaScript
-* AsyncStorage
+* React
+* TypeScript
+* Tailwind CSS
+* Gemini 3.1 Flash Lite
+* Local Storage
+* Vite
 
 ## Installation
 
-Download the latest APK from the [Releases](../../releases) section.
-
-Install the APK on your Android device.
-
-## Development
-
-Clone the repository:
+### Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/coding-tracker.git
-cd coding-tracker
+git clone https://github.com/your-username/ezy-checklist.git
+cd ezy-checklist
 ```
 
-Install dependencies:
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-Start the development server:
+### Configure Environment Variables
 
-```bash
-npx expo start
+Create a `.env` file in the root directory.
+
+```env
+VITE_GEMINI_API_KEY=your_api_key_here
 ```
 
-## Build APK
-
-Install EAS CLI:
+### Start Development Server
 
 ```bash
-npm install -g eas-cli
+npm run dev
 ```
 
-Build the Android APK:
+## Build
+
+### Web Build
 
 ```bash
-eas build -p android --profile preview
+npm run build
 ```
 
-## Data Storage
+### Android APK (Expo)
 
-All coding progress is stored locally on the user's device using AsyncStorage.
+```bash
+npx expo prebuild
+cd android
+.\gradlew.bat assembleRelease
+```
 
-No account or backend is required.
+APK Location:
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Project Structure
+
+```text
+src/
+├── components/
+├── pages/
+├── hooks/
+├── services/
+├── utils/
+├── types/
+└── App.tsx
+```
+
+## How It Works
+
+1. User enters items in a text area.
+2. Items are sent to Gemini 3.1 Flash Lite.
+3. Gemini categorizes the items.
+4. Results are displayed as grouped checklists.
+5. Checklist state is stored in Local Storage.
+6. Completed items remain saved after page refresh.
+
+## Local Storage
+
+Example stored data:
+
+```json
+{
+  "Vegetables": [
+    {
+      "name": "potato",
+      "checked": true
+    },
+    {
+      "name": "onion",
+      "checked": false
+    }
+  ]
+}
+```
+
+## Roadmap
+
+* Custom categories
+* Recurring shopping lists
+* Voice input
+* Barcode scanning
+* Cloud sync
+* Shared family lists
+* Offline AI categorization
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License
