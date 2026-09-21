@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # 🛒 Ezy-Chklist
+=======
+# 🛒 Ezy-Chklist (COMPLETELY VIBE CODED)
+>>>>>>> 928ec650ea9503a3e4fc0a8062d192d1491dc4e0
 
 A minimal, AI-powered grocery organizer that automatically categorizes your shopping list into smart groups — built with React Native + Expo.
 

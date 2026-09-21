@@ -231,11 +231,7 @@ export default function App() {
     const rawInput = inputText.trim();
     if (!rawInput) return;
 
-    const rawTokens = rawInput.split(/[\n,]+/).map(t => t.trim()).filter(Boolean);
-    const itemsList = [];
-    for (const token of rawTokens) {
-      itemsList.push(...token.split(/\s+/).filter(Boolean));
-    }
+    const itemsList = rawInput.split(/[\n,]+/).map(t => t.trim()).filter(Boolean);
     if (itemsList.length === 0) return;
 
     if (!apiKey) {
@@ -391,7 +387,7 @@ Items: ${JSON.stringify(itemsList)}`;
           <TextInput
             style={styles.textArea}
             multiline
-            placeholder="Type items: potato, onion, milk ghee bread..."
+            placeholder="Type items: potato, onion, milk, ghee, bread..."
             placeholderTextColor="#555"
             value={inputText}
             onChangeText={setInputText}
@@ -452,7 +448,7 @@ Items: ${JSON.stringify(itemsList)}`;
               <Text style={styles.emptyText}>Your smart grocery list</Text>
               <Text style={styles.emptySubtext}>
                 Type or paste your items above and tap Categorize.{'\n'}
-                Items can be separated by commas, spaces, or new lines.
+                Separate items with commas or new lines.
               </Text>
             </View>
           )}
