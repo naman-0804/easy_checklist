@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 
 const STORAGE_KEY = '@ezy_chklist_data';
 const SETTINGS_KEY = '@ezy_chklist_settings';
+const HISTORY_KEY = '@ezy_chklist_history';
 const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 360);
@@ -144,6 +145,92 @@ function SettingsPanel({ visible, onClose, apiKey, modelId, onSave }) {
   );
 }
 
+// ─── History Panel ──────────────────────────────────────────────────
+function HistoryPanel({ visible, onClose, history, onDeleteItem, onClearAll }) {
+  const slideAnim = useRef(new Animated.Value(PANEL_WIDTH)).current;
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: visible ? 0 : PANEL_WIDTH,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [visible]);
+
+  const grouped = {};
+  history.forEach((item, idx) => {
+    if (!grouped[item.category]) grouped[item.category] = [];
+    grouped[item.category].push({ ...item, _idx: idx });
+  });
+
+  return (
+    <>
+      {visible && (
+        <TouchableOpacity style={historyStyles.backdrop} activeOpacity={1} onPress={onClose} />
+      )}
+      <Animated.View
+        style={[historyStyles.panel, { transform: [{ translateX: slideAnim }] }]}
+        pointerEvents={visible ? 'auto' : 'none'}
+      >
+        <View style={historyStyles.header}>
+          <Text style={historyStyles.title}>📋 History</Text>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+            <Text style={historyStyles.closeBtn}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={historyStyles.body} showsVerticalScrollIndicator={false}>
+          {history.length === 0 ? (
+            <View style={historyStyles.empty}>
+              <Text style={historyStyles.emptyIcon}>📭</Text>
+              <Text style={historyStyles.emptyText}>No history yet</Text>
+              <Text style={historyStyles.emptySubtext}>Items you add will appear here</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={historyStyles.summaryText}>
+                {history.length} item{history.length !== 1 ? 's' : ''} total
+              </Text>
+              {Object.entries(grouped).map(([category, items]) => (
+                <View key={category} style={historyStyles.catGroup}>
+                  <View style={historyStyles.catHeader}>
+                    <Text style={historyStyles.catIcon}>{getIcon(category)}</Text>
+                    <Text style={historyStyles.catTitle}>{category}</Text>
+                    <Text style={historyStyles.catCount}>{items.length}</Text>
+                  </View>
+                  {items.map((item) => (
+                    <View key={item._idx} style={historyStyles.itemRow}>
+                      <View style={historyStyles.itemInfo}>
+                        <Text style={historyStyles.itemName}>{item.name}</Text>
+                        <Text style={historyStyles.itemDate}>
+                          {new Date(item.addedAt).toLocaleDateString(undefined, {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                          })}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={historyStyles.delBtn}
+                        onPress={() => onDeleteItem(item._idx)}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={historyStyles.delBtnText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ))}
+              <TouchableOpacity style={historyStyles.clearAllBtn} onPress={onClearAll} activeOpacity={0.8}>
+                <Text style={historyStyles.clearAllText}>🗑  Clear All History</Text>
+              </TouchableOpacity>
+              <View style={{ height: 40 }} />
+            </>
+          )}
+        </ScrollView>
+      </Animated.View>
+    </>
+  );
+}
+
 // ─── Confirm Modal ──────────────────────────────────────────────────
 function ConfirmModal({ visible, title, message, onConfirm, onCancel }) {
   if (!visible) return null;
@@ -172,6 +259,8 @@ export default function App() {
   const [checklist, setChecklist] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
   const [apiKey, setApiKey] = useState('');
   const [modelId, setModelId] = useState(DEFAULT_MODEL);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -184,9 +273,10 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [storedList, storedSettings] = await Promise.all([
+        const [storedList, storedSettings, storedHistory] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEY),
           AsyncStorage.getItem(SETTINGS_KEY),
+          AsyncStorage.getItem(HISTORY_KEY),
         ]);
         if (storedList) {
           const parsed = JSON.parse(storedList);
@@ -198,6 +288,10 @@ export default function App() {
           const settings = JSON.parse(storedSettings);
           if (settings.apiKey) setApiKey(settings.apiKey);
           if (settings.modelId) setModelId(settings.modelId);
+        }
+        if (storedHistory) {
+          const parsedHistory = JSON.parse(storedHistory);
+          if (Array.isArray(parsedHistory)) setHistory(parsedHistory);
         }
       } catch (e) {
         console.error('Failed to load data', e);
@@ -215,6 +309,17 @@ export default function App() {
       }
     })();
   }, [checklist]);
+
+  // Persist history
+  useEffect(() => {
+    (async () => {
+      try {
+        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      } catch (e) {
+        console.error('Failed to save history', e);
+      }
+    })();
+  }, [history]);
 
   // Save settings handler
   const saveSettings = async (key, model) => {
@@ -293,6 +398,21 @@ Items: ${JSON.stringify(itemsList)}`;
         return updated;
       });
 
+      // Record to history
+      const now = new Date().toISOString();
+      const newHistoryItems = [];
+      for (const [category, newItems] of Object.entries(parsedJSON)) {
+        if (!Array.isArray(newItems)) continue;
+        newItems.forEach((itemName) => {
+          if (typeof itemName === 'string' && itemName.trim()) {
+            newHistoryItems.push({ name: itemName, category, addedAt: now });
+          }
+        });
+      }
+      if (newHistoryItems.length > 0) {
+        setHistory((prev) => [...prev, ...newHistoryItems]);
+      }
+
       setInputText('');
     } catch (error) {
       alert(`Failed to categorize: ${error.message}`);
@@ -309,6 +429,26 @@ Items: ${JSON.stringify(itemsList)}`;
       updated[category][index] = { ...updated[category][index], checked: !updated[category][index].checked };
       return updated;
     });
+  };
+
+  const deleteItem = (category, index) => {
+    setChecklist((prev) => {
+      const updated = { ...prev };
+      updated[category] = [...updated[category]];
+      updated[category].splice(index, 1);
+      if (updated[category].length === 0) {
+        delete updated[category];
+      }
+      return updated;
+    });
+  };
+
+  const deleteFromHistory = (index) => {
+    setHistory((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
   };
 
   const clearChecklist = () => {
@@ -341,11 +481,26 @@ Items: ${JSON.stringify(itemsList)}`;
         onSave={saveSettings}
       />
 
+      <HistoryPanel
+        visible={showHistory}
+        onClose={() => setShowHistory(false)}
+        history={history}
+        onDeleteItem={deleteFromHistory}
+        onClearAll={clearHistory}
+      />
+
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🛒 Ezy-Chklist</Text>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.historyBtn}
+              onPress={() => setShowHistory(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.historyBtnText}>📋</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.settingsBtn}
               onPress={() => setShowSettings(true)}
@@ -425,19 +580,27 @@ Items: ${JSON.stringify(itemsList)}`;
                     <Text style={styles.categoryCount}>{catChecked}/{items.length}</Text>
                   </View>
                   {items.map((item, index) => (
-                    <TouchableOpacity
-                      key={`${category}-${index}`}
-                      style={styles.itemRow}
-                      activeOpacity={0.6}
-                      onPress={() => toggleItem(category, index)}
-                    >
-                      <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-                        {item.checked && <Text style={styles.checkmark}>✓</Text>}
-                      </View>
-                      <Text style={[styles.itemText, item.checked && styles.itemTextChecked]}>
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
+                    <View key={`${category}-${index}`} style={styles.itemRow}>
+                      <TouchableOpacity
+                        style={styles.itemTouchable}
+                        activeOpacity={0.6}
+                        onPress={() => toggleItem(category, index)}
+                      >
+                        <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+                          {item.checked && <Text style={styles.checkmark}>✓</Text>}
+                        </View>
+                        <Text style={[styles.itemText, item.checked && styles.itemTextChecked]}>
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.itemDeleteBtn}
+                        onPress={() => deleteItem(category, index)}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={styles.itemDeleteText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               );
@@ -603,6 +766,76 @@ const modalStyles = StyleSheet.create({
   confirmText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
+// ─── History Panel Styles ───────────────────────────────────────────
+const historyStyles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 998,
+  },
+  panel: {
+    position: 'absolute',
+    top: 0, right: 0, bottom: 0,
+    width: PANEL_WIDTH,
+    backgroundColor: '#111119',
+    zIndex: 999,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(59,130,246,0.15)',
+    paddingTop: Platform.OS === 'android' ? 38 : 50,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  title: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  closeBtn: { fontSize: 20, color: '#666', fontWeight: '700', padding: 4 },
+  body: { flex: 1, paddingHorizontal: 22, paddingTop: 16 },
+  summaryText: { fontSize: 13, color: '#6B7280', fontWeight: '600', marginBottom: 16 },
+  catGroup: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  catHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
+  catIcon: { fontSize: 16 },
+  catTitle: { fontSize: 14, fontWeight: '700', color: '#93C5FD', flex: 1 },
+  catCount: {
+    fontSize: 11, color: '#555', fontWeight: '600',
+    backgroundColor: '#1A1A2E', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, overflow: 'hidden',
+  },
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 4,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)',
+  },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: 14, color: '#D1D5DB', textTransform: 'capitalize' },
+  itemDate: { fontSize: 11, color: '#4B5563', marginTop: 2 },
+  delBtn: {
+    width: 26, height: 26, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(231,76,60,0.12)',
+  },
+  delBtnText: { color: '#E74C3C', fontSize: 11, fontWeight: '700' },
+  clearAllBtn: {
+    marginTop: 16, backgroundColor: 'rgba(231,76,60,0.1)',
+    borderRadius: 14, paddingVertical: 14, alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(231,76,60,0.2)',
+  },
+  clearAllText: { color: '#E74C3C', fontSize: 15, fontWeight: '700' },
+  empty: { alignItems: 'center', paddingTop: 60 },
+  emptyIcon: { fontSize: 40, marginBottom: 12 },
+  emptyText: { fontSize: 17, fontWeight: '700', color: '#E5E7EB', marginBottom: 6 },
+  emptySubtext: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
+});
+
 // ─── Main Styles ────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0D0D14' },
@@ -627,6 +860,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(231,76,60,0.2)',
   },
   clearBtnText: { fontSize: 17 },
+  historyBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: 'rgba(59,130,246,0.1)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(59,130,246,0.15)',
+  },
+  historyBtnText: { fontSize: 17 },
 
   // Warning banner
   warningBanner: {
@@ -676,6 +915,12 @@ const styles = StyleSheet.create({
 
   // Items
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 4 },
+  itemTouchable: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  itemDeleteBtn: {
+    width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(231,76,60,0.1)', marginLeft: 8,
+  },
+  itemDeleteText: { color: '#E74C3C', fontSize: 12, fontWeight: '700' },
   checkbox: {
     width: 22, height: 22, borderRadius: 7, borderWidth: 2,
     borderColor: '#3D3670', marginRight: 12, alignItems: 'center', justifyContent: 'center',
