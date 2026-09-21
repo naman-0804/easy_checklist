@@ -1,83 +1,137 @@
-# Coding Tracker
+# 🛒 Ezy-Chklist
 
-A simple Android app for tracking the number of coding questions solved across different coding platforms.
+A minimal, AI-powered grocery organizer that automatically categorizes your shopping list into smart groups — built with React Native + Expo.
 
-## Features
+> Type your items in any format, hit **Categorize**, and get an organized checklist instantly.
 
-* Add coding platforms
-* Track questions solved for each platform
-* Update solved question counts
-* Automatically calculate total questions solved
-* Delete platforms
-* Store data locally on the device
-* Works offline
-* Simple and lightweight interface
+---
 
-## Example
+## ✨ Features
 
-| Platform      | Questions Solved |
-| ------------- | ---------------: |
-| HackerRank    |               10 |
-| TUF           |              200 |
-| LeetCode      |              150 |
-| GeeksforGeeks |               75 |
+- **AI-Powered Categorization** — Uses Google's Gemini API to intelligently sort items into categories like *Vegetables & Greens*, *Dairy & Eggs*, *Bakery & Bread*, *Personal Care*, and more
+- **Flexible Input** — Enter items separated by commas, spaces, or new lines. It just works
+- **Persistent Checklist** — Your list and checked-off items are saved locally and survive app restarts
+- **Progress Tracking** — Visual progress bar shows how many items you've checked off
+- **Settings Panel** — Bring your own Gemini API key and switch models from within the app
+- **Cross-Platform** — Runs on Android, iOS, and Web via Expo
 
-**Total Solved: 435**
+---
 
-## Tech Stack
+## 📸 How It Works
 
-* React Native
-* Expo
-* JavaScript
-* AsyncStorage
+```
+Input:  potato onion milk ghee bread toothpaste
 
-## Installation
-
-Download the latest APK from the [Releases](../../releases) section.
-
-Install the APK on your Android device.
-
-## Development
-
-Clone the repository:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/coding-tracker.git
-cd coding-tracker
+Output:
+┌─────────────────────────────┐
+│ 🥬 Vegetables & Greens      │
+│   ☐ potato                  │
+│   ☐ onion                   │
+├─────────────────────────────┤
+│ 🥛 Dairy & Eggs             │
+│   ☐ milk                    │
+│   ☐ ghee                    │
+├─────────────────────────────┤
+│ 🍞 Bakery & Bread           │
+│   ☐ bread                   │
+├─────────────────────────────┤
+│ 🧴 Personal Care            │
+│   ☐ toothpaste              │
+└─────────────────────────────┘
 ```
 
-Install dependencies:
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [Expo Go](https://expo.dev/go) app on your phone
+- A free [Gemini API Key](https://ai.google.dev/)
+
+### Install & Run
 
 ```bash
+# Clone the repo
+git clone https://github.com/naman-0804/coding-tracker_apk.git
+cd coding-tracker_apk
+
+# Install dependencies
 npm install
-```
 
-Start the development server:
-
-```bash
+# Start the dev server
 npx expo start
 ```
 
-## Build APK
+Then scan the QR code with **Expo Go** on your phone.
 
-Install EAS CLI:
+### Setup API Key
+
+1. Open the app
+2. Tap the **⚙️** gear icon in the header
+3. Paste your Gemini API key
+4. (Optional) Change the model ID
+5. Hit **Save Settings**
+
+No `.env` files needed — the key is stored securely on-device.
+
+---
+
+## 🏗️ Build APK (via Expo)
+
+To get a standalone APK, use [EAS Build](https://expo.dev/eas) (no local Android SDK needed):
 
 ```bash
+# Install EAS CLI
 npm install -g eas-cli
-```
 
-Build the Android APK:
+# Login to Expo
+eas login
 
-```bash
+# Build APK
 eas build -p android --profile preview
 ```
 
-## Data Storage
+The download link will appear in your terminal and on the [Expo dashboard](https://expo.dev) once the build completes.
 
-All coding progress is stored locally on the user's device using AsyncStorage.
+---
 
-No account or backend is required.
+## 🧠 AI Model
 
-## License
+By default the app uses **Gemini 3.1 Flash Lite** for fast, low-cost categorization. You can switch to any supported Gemini model from the Settings panel:
 
-This project is licensed under the MIT License.
+| Model | Speed | Quality |
+|---|---|---|
+| `gemini-3.1-flash-lite` | ⚡ Fastest | Good |
+| `gemini-2.5-flash` | Fast | Great |
+| `gemini-2.0-flash` | Fast | Great |
+| `gemini-1.5-flash` | Moderate | Excellent |
+
+---
+
+## 📁 Project Structure
+
+```
+ezy-chklist/
+├── App.js            # Main application (UI + logic)
+├── app.json          # Expo configuration
+├── eas.json          # EAS Build profiles
+├── package.json      # Dependencies & scripts
+├── assets/           # App icons & images
+└── .gitignore
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **React Native** + **Expo** (SDK 57)
+- **Google Gemini API** (Generative AI)
+- **AsyncStorage** (local persistence)
+
+---
+
+## 📄 License
+
+MIT — do whatever you want with it.
