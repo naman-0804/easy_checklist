@@ -23,8 +23,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "42e9d39e-3c14-4478-8de6-24cf0601c388"
+        "projectId": "35e5dbb3-89dd-42fc-8994-1487accaa497"
       }
-    }
+    },
+    "owner": "naman01"
   }
 }
